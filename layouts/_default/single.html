@@ -1,0 +1,165 @@
+{{ define "main" }}
+<!-- 1. CONTAINER UTAMA -->
+<div class="container mx-auto px-4 py-8 md:py-12 max-w-7xl">
+
+    <!-- 2. LAYOUT: Grid (Kiri Konten, Kanan Sidebar) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+
+        <!-- ==========================
+             KOLOM KIRI: ARTIKEL (8 Kolom / ~66%)
+             ========================== -->
+        <article class="lg:col-span-8 bg-white min-w-0">
+            
+            <!-- Breadcrumb -->
+            <nav class="text-xs font-bold text-gray-500 mb-6 uppercase tracking-wider flex items-center gap-2">
+                <a href="/" class="hover:text-emerald-600 transition-colors">Home</a> 
+                <span class="text-gray-300">/</span>
+                {{ if .Params.categories }}
+                <a href="/categories/{{ index .Params.categories 0 | urlize }}" class="hover:text-emerald-600 transition-colors text-emerald-600">
+                    {{ index .Params.categories 0 }}
+                </a>
+                <span class="text-gray-300">/</span>
+                {{ end }}
+                <span class="text-gray-900 line-clamp-1 border-b border-transparent">{{ .Title }}</span>
+            </nav>
+
+            <!-- Header Content -->
+            <header class="mb-8 border-b border-gray-100 pb-8">
+                <h1 class="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 leading-tight mb-6 font-display">
+                    {{ .Title }}
+                </h1>
+                
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-3">
+                        <!-- Author Image -->
+                        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
+                            <img src="/images/author-default.webp" alt="Author" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-bold text-gray-900 uppercase">{{ .Params.author | default "FastPlace Team" }}</span>
+                            <span class="text-[10px] text-gray-500 font-mono">Published: {{ .Date.Format "Jan 02, 2006" }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Reading Time -->
+                    <div class="flex gap-2">
+                        <span class="px-3 py-1 bg-stone-100 rounded-full text-[10px] font-bold text-stone-500 flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            {{ .ReadingTime }} min read
+                        </span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- FEATURED IMAGE -->
+            {{ if .Params.featured_image }}
+            <figure class="mb-10 w-full rounded-2xl overflow-hidden shadow-lg relative aspect-video bg-gray-100">
+                <img src="{{ .Params.featured_image | absURL }}" 
+                     alt="{{ .Title }}" 
+                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 hover:scale-105">
+            </figure>
+            {{ end }}
+
+            <!-- IKLAN ATAS (Responsive Slot) -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="my-8 w-full bg-stone-50 border-y border-stone-200 py-8 text-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Advertisement</span>
+                <div class="flex items-center justify-center text-gray-300 text-xs font-mono h-[100px] border-2 border-dashed border-gray-200 mx-auto w-3/4 bg-white rounded">
+                    <!-- Paste Kode Iklan Display Di Sini -->
+                    [ Slot Google AdSense Display ]
+                </div>
+            </div>
+            {{ end }}
+
+            <!-- ISI ARTIKEL (Prose) -->
+            <div class="prose prose-lg prose-emerald max-w-none text-gray-800 leading-relaxed marker:text-emerald-600">
+                {{ .Content }}
+            </div>
+
+            <!-- IKLAN BAWAH (Multiplex) -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="mt-16 w-full bg-stone-50 border border-stone-200 p-6 text-center rounded-xl">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest block mb-2">Sponsored Content</span>
+                <div class="flex items-center justify-center text-gray-300 text-xs font-mono h-[250px] border-2 border-dashed border-gray-200 bg-white rounded">
+                    <!-- Paste Kode Iklan Multiplex Di Sini -->
+                    [ Slot Google AdSense Multiplex ]
+                </div>
+            </div>
+            {{ end }}
+
+            <!-- TAGS -->
+            {{ if .Params.tags }}
+            <div class="mt-10 pt-6 border-t border-gray-100">
+                <div class="flex flex-wrap gap-2">
+                    {{ range .Params.tags }}
+                    <a href="/tags/{{ . | urlize }}" class="px-3 py-1 bg-stone-100 hover:bg-emerald-600 hover:text-white text-gray-600 text-xs font-bold rounded-full transition-colors">
+                        #{{ . }}
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
+            {{ end }}
+
+        </article>
+
+        <!-- ==========================
+             KOLOM KANAN: SIDEBAR (4 Kolom / ~33%)
+             ========================== -->
+        <aside class="lg:col-span-4 space-y-10 sticky top-24">
+            
+            <!-- WIDGET 1: LATEST ADVENTURES -->
+            <div class="bg-white border border-stone-200 rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-stone-100 bg-stone-50 flex items-center justify-between">
+                    <h3 class="font-black text-gray-900 uppercase text-sm tracking-wider flex items-center gap-2">
+                        <span class="w-1 h-4 bg-emerald-600 rounded-full"></span> Latest Adventures
+                    </h3>
+                </div>
+                
+                <div class="p-4 flex flex-col gap-5">
+                    <!-- LOGIC FIX: Ambil 5 artikel terbaru dari semua section -->
+                    {{ $latest := where .Site.RegularPages "Type" "in" (slice "articles" "posts") }}
+                    {{ range first 5 $latest.ByDate.Reverse }}
+                    <a href="{{ .Permalink }}" class="flex gap-4 group items-start">
+                        <!-- Thumbnail -->
+                        <div class="w-20 h-20 bg-gray-100 shrink-0 overflow-hidden rounded-lg relative border border-gray-200">
+                            {{ if .Params.featured_image }}
+                            <img src="{{ .Params.featured_image | absURL }}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500" loading="lazy" alt="{{ .Title }}">
+                            {{ else }}
+                            <div class="w-full h-full flex items-center justify-center text-gray-300 text-[10px]">No Img</div>
+                            {{ end }}
+                        </div>
+                        <!-- Judul -->
+                        <div class="flex-1 min-w-0 py-1">
+                            <h4 class="text-sm font-bold text-gray-900 leading-snug group-hover:text-emerald-600 line-clamp-2 mb-1 transition-colors font-display">
+                                {{ .Title }}
+                            </h4>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-gray-400 font-medium">{{ .Date.Format "Jan 02" }}</span>
+                                {{ if .Params.categories }}
+                                <span class="text-[9px] text-emerald-600 font-bold uppercase border border-emerald-100 bg-emerald-50 px-1 rounded">
+                                    {{ index .Params.categories 0 }}
+                                </span>
+                                {{ end }}
+                            </div>
+                        </div>
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
+
+            <!-- WIDGET 2: IKLAN VERTIKAL -->
+            {{ if not (in .Params.categories "Legal") }}
+            <div class="bg-white border border-stone-200 p-4 rounded-xl shadow-sm flex flex-col items-center">
+                <span class="text-[10px] text-gray-400 uppercase tracking-widest mb-3">Advertisement</span>
+                <div class="w-full aspect-[1/2] bg-stone-50 border-2 border-dashed border-stone-200 flex items-center justify-center text-gray-400 text-xs font-mono rounded text-center p-4">
+                    <!-- Paste Kode Iklan Vertikal Di Sini -->
+                    [ AdSense Vertical<br>300x600 ]
+                </div>
+            </div>
+            {{ end }}
+
+        </aside>
+
+    </div>
+</div>
+{{ end }}

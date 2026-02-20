@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode | default "en" }}" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    
+    <!-- 1. PRECONNECT & SPEED -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://s10.histats.com">
+    
+    <!-- 2. SEO TITLE (ADVENTURE OPTIMIZED) -->
+    <title>
+        {{ if .IsHome }}
+            {{ .Site.Title }} - Ultimate Outdoor Guides, Survival Skills & Gear Reviews
+        {{ else }}
+            {{ .Title }} | {{ .Site.Title }}
+        {{ end }}
+    </title>
+
+    <!-- 3. META DESCRIPTION & KEYWORDS -->
+    <meta name="description" content="{{ if .IsHome }}{{ .Site.Params.description }}{{ else }}{{ .Params.description | default .Summary | plainify | htmlUnescape }}{{ end }}">
+    <meta name="keywords" content="Hiking, Camping, Survival Skills, Ultralight Backpacking, Outdoor Gear, Mountaineering, Adventure Travel, Trekking">
+    <meta name="author" content="{{ .Params.author | default "FastPlace Team" }}">
+
+    <link rel="canonical" href="{{ .Permalink }}">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    
+    <!-- Theme Color: Emerald Green (Nature) -->
+    <meta name="theme-color" content="#059669">
+
+    <!-- 4. TAILWIND & FONTS (NATURE STYLE) -->
+    <!-- Menggunakan Font 'Outfit' (Headings) dan 'Inter' (Body) untuk tampilan Modern Clean -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com?plugins=typography,line-clamp"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            500: '#10b981',
+                            600: '#059669', /* Hutan Hijau */
+                            700: '#047857',
+                        },
+                        stone: {
+                            50: '#fafaf9',
+                            100: '#f5f5f4',
+                            800: '#292524',
+                            900: '#1c1917', /* Dark Earth/Rock */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'], /* Font Judul Modern */
+                    },
+                    typography: (theme) => ({
+                        DEFAULT: {
+                            css: {
+                                color: theme('colors.gray.700'),
+                                a: {
+                                    color: theme('colors.emerald.600'),
+                                    '&:hover': {
+                                        color: theme('colors.emerald.700'),
+                                    },
+                                },
+                            },
+                        },
+                    }),
+                }
+            }
+        }
+    </script>
+
+    <!-- 5. OPEN GRAPH (SOCIAL MEDIA) -->
+    <meta property="og:locale" content="{{ .Site.LanguageCode | default "en_US" }}">
+    <meta property="og:site_name" content="{{ .Site.Title }}">
+    <meta property="og:type" content="{{ if .IsPage }}article{{ else }}website{{ end }}">
+    <meta property="og:title" content="{{ if .IsHome }}{{ .Site.Title }} - Explore The Wild{{ else }}{{ .Title }}{{ end }}">
+    <meta property="og:description" content="{{ if .IsHome }}{{ .Site.Params.description }}{{ else }}{{ .Params.description | default .Summary | plainify | htmlUnescape }}{{ end }}">
+    <meta property="og:url" content="{{ .Permalink }}">
+    
+    {{ if .Params.featured_image }}
+    <meta property="og:image" content="{{ .Params.featured_image | absURL }}">
+    {{ else }}
+    <!-- Pastikan Anda punya gambar default ini nanti -->
+    <meta property="og:image" content="{{ "images/default-adventure.webp" | absURL }}">
+    {{ end }}
+
+    <!-- 6. TWITTER CARDS -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ .Title }}">
+    <meta name="twitter:description" content="{{ if .IsHome }}{{ .Site.Params.description }}{{ else }}{{ .Params.description | default .Summary | plainify | htmlUnescape }}{{ end }}">
+    {{ if .Params.featured_image }}
+    <meta name="twitter:image" content="{{ .Params.featured_image | absURL }}">
+    {{ else }}
+    <meta name="twitter:image" content="{{ "images/default-adventure.webp" | absURL }}">
+    {{ end }}
+
+    <!-- =======================================================
+         7. SCHEMA.ORG (JSON-LD) - OUTDOOR BLOG
+         ======================================================= -->
+    
+    <!-- A. Homepage Schema (WebSite / Organization) -->
+    {{ if .IsHome }}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite", 
+      "name": "{{ .Site.Title }}",
+      "alternateName": ["FastPlace Adventure", "Outdoor Gear Guide"],
+      "url": "{{ .Site.BaseURL }}",
+      "description": "{{ .Site.Params.description }}",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "{{ .Site.BaseURL }}search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+    {{ end }}
+
+    <!-- B. Article Schema (BlogPosting / Article) -->
+    {{ if .IsPage }}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "{{ .Permalink }}"
+      },
+      "headline": "{{ .Title }}",
+      "image": [ "{{ .Params.featured_image | absURL }}" ],
+      "datePublished": "{{ .Date.Format "2006-01-02T15:04:05Z07:00" }}",
+      "dateModified": "{{ .Lastmod.Format "2006-01-02T15:04:05Z07:00" }}",
+      "author": {
+        "@type": "Person",
+        "name": "{{ .Params.author | default "FastPlace Expert" }}"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "{{ .Site.Title }}",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "{{ "favicon.svg" | absURL }}" 
+        }
+      },
+      "articleSection": "{{ index .Params.categories 0 }}",
+      "description": "{{ .Params.description | default .Summary | plainify | htmlUnescape }}"
+    }
+    </script>
+    {{ end }}
+
+    <link rel="icon" href="{{ "favicon.svg" | absURL }}" type="image/svg+xml">
+</head>
+
+<!-- Body Background: Stone-50 (Putih Gading/Alami) bukan Abu-abu besi -->
+<body class="bg-stone-50 text-gray-900 font-sans antialiased flex flex-col min-h-screen selection:bg-emerald-200 selection:text-emerald-900">
+    
+    {{ partial "header.html" . }}
+    
+    <main id="main-content" role="main" class="flex-grow">
+        {{ block "main" . }}{{ end }}
+    </main>
+    
+    {{ partial "footer.html" . }}
+
+</body>
+</html>

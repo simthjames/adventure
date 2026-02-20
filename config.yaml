@@ -1,0 +1,46 @@
+baseURL: "https://fastplace.biz.id/"
+languageCode: "en-us"
+title: "JeepMe"
+canonifyURLs: true
+
+permalinks:
+  articles: "/:slug/"
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - Sitemap
+  page:
+    - HTML
+    - Sitemap
+  section:
+    - HTML
+    - RSS
+    - Sitemap
+  taxonomy:
+    - HTML
+    - RSS
+  term:
+    - HTML
+    - RSS
+
+services:
+  rss:
+    limit: 50
+
+taxonomies:
+  category: "categories"
+  tag: "tags"
+
+params:
+  description: "Your #1 source for breaking Jeeps news."
+  defaultImage: "/images/default-Jeeps.jpg"
+  author:
+    name: "JeepMe Team"
+    email: "contact@JeepMe.com"

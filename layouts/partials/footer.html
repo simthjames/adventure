@@ -1,0 +1,87 @@
+<footer class="bg-stone-900 text-gray-400 pt-16 pb-8 border-t-[6px] border-emerald-600 text-sm">
+    <div class="container mx-auto px-4">
+        
+        <!-- Top Section: Brand & About -->
+        <div class="flex flex-col md:flex-row justify-between items-start border-b border-stone-800 pb-10 mb-10 gap-8">
+            <div class="md:w-1/3">
+                <a href="/" class="flex items-center gap-3 group mb-4" aria-label="FastPlace Homepage">
+                    <!-- Icon Mountain Simple -->
+                    <div class="w-10 h-10 rounded bg-stone-800 flex items-center justify-center border-2 border-stone-600 group-hover:border-emerald-500 transition text-emerald-500">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.8 9 10 9 10L4 17h16l-6-11zm-4 5.2l-2 3.8h4l-2-3.8z"/></svg>
+                    </div>
+                    <span class="font-display font-black text-xl tracking-tighter text-white uppercase">
+                        Fast<span class="text-emerald-500">PLACE</span>
+                    </span>
+                </a>
+                <p class="text-gray-400 text-xs leading-relaxed mb-4">
+                    **FastPlace.biz.id** is your ultimate compass for the outdoors. From ultralight backpacking to wilderness survival, we provide the knowledge you need to explore the world's wildest places safely.
+                </p>
+                <div class="flex gap-3">
+                    <!-- Social Placeholders -->
+                    <a href="#" class="w-8 h-8 rounded bg-stone-800 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg></a>
+                </div>
+            </div>
+            
+            <div class="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-8">
+                <!-- Column 1 -->
+                <div>
+                    <h4 class="font-black text-white uppercase mb-4 tracking-widest text-[10px] border-b-2 border-emerald-600 inline-block pb-1">Skills & Guides</h4>
+                    <ul class="space-y-2 text-xs">
+                        <li><a href="/categories/hiking-guides" class="hover:text-emerald-400 transition">Hiking Guides</a></li>
+                        <li><a href="/categories/survival-skills" class="hover:text-emerald-400 transition">Survival Skills</a></li>
+                        <li><a href="/categories/camping-hacks" class="hover:text-emerald-400 transition">Camping Hacks</a></li>
+                        <li><a href="/categories/outdoor-safety" class="hover:text-emerald-400 transition">First Aid & Safety</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 2 -->
+                <div>
+                    <h4 class="font-black text-white uppercase mb-4 tracking-widest text-[10px] border-b-2 border-emerald-600 inline-block pb-1">Gear Locker</h4>
+                    <ul class="space-y-2 text-xs">
+                        <li><a href="/categories/gear-reviews" class="hover:text-emerald-400 transition">Gear Reviews</a></li>
+                        <li><a href="/categories/ultralight-backpacking" class="hover:text-emerald-400 transition">Ultralight Setup</a></li>
+                        <li><a href="/categories/adventure-tech" class="hover:text-emerald-400 transition">Adventure Tech</a></li>
+                        <li><a href="/categories/footwear" class="hover:text-emerald-400 transition">Boots & Footwear</a></li>
+                    </ul>
+                </div>
+
+                <!-- Column 3 (Legal) -->
+                <div>
+                    <h4 class="font-black text-white uppercase mb-4 tracking-widest text-[10px] border-b-2 border-emerald-600 inline-block pb-1">Basecamp Info</h4>
+                    <ul class="space-y-2 text-xs">
+                        <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="/contact" class="hover:text-white transition">Contact</a></li>
+                        <li><a href="/privacy-policy" class="hover:text-white transition">Privacy Policy</a></li>
+                        <li><a href="/terms-of-service" class="hover:text-white transition">Terms of Service</a></li>
+                        <li><a href="/disclaimer" class="hover:text-white transition">Safety Disclaimer</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Disclaimer Section (Wajib untuk AdSense Niche Outdoor) -->
+        <div class="bg-stone-800 rounded p-4 mb-8 text-[10px] text-gray-500 leading-relaxed border border-stone-700">
+            <strong class="text-emerald-500 block mb-1">SAFETY & AFFILIATE DISCLAIMER:</strong>
+            Outdoor activities involve inherent risks. The content on FastPlace.biz.id is for educational and entertainment purposes only. Always consult professionals and check local conditions before embarking on any adventure. We are a participant in affiliate programs and may earn a commission from qualifying purchases at no extra cost to you.
+        </div>
+
+        <!-- Copyright -->
+        <div class="flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 uppercase tracking-wider font-bold">
+            <p>&copy; {{ now.Format "2006" }} FastPlace.biz.id. All rights reserved.</p>
+            <p class="mt-2 md:mt-0">Explore Further // Powered by Nature</p>
+        </div>
+        
+        <!-- Lazy Load Histats -->
+        <div class="hidden">
+            <script>
+                window.addEventListener('load', function(){
+                    setTimeout(function(){
+                        var hs = document.createElement('script'); hs.type = 'text/javascript'; hs.async = true;
+                        hs.src = '//s10.histats.com/js15_as.js';
+                        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(hs);
+                    }, 5000);
+                });
+            </script>
+        </div>
+    </div>
+</footer>
