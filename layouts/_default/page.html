@@ -1,51 +1,118 @@
 {{ define "main" }}
-<div class="container mx-auto px-4 py-12 md:py-16 max-w-4xl">
+<!-- Wrapper Background -->
+<div class="bg-gray-50 min-h-screen font-sans text-gray-800">
 
-    <!-- Card Container -->
-    <div class="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-        
-        <!-- 1. PAGE HEADER -->
-        <header class="px-6 py-10 md:px-12 md:py-12 bg-stone-50 border-b border-stone-100 text-center">
-            <!-- Icon Gunung -->
-            <div class="mb-4 flex justify-center text-emerald-600 opacity-80">
-                <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M14 6l-3.75 5 2.85 3.8-1.6 1.2C9.81 13.8 9 10 9 10L4 17h16l-6-11zm-4 5.2l-2 3.8h4l-2-3.8z"/></svg>
-            </div>
+    <!-- 1. CONTAINER UTAMA -->
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
 
-            <h1 class="text-3xl md:text-4xl font-display font-black text-gray-900 mb-4 tracking-tight uppercase">
-                {{ .Title }}
-            </h1>
-            
-            {{ if .Params.description }}
-            <p class="text-base md:text-lg text-gray-500 font-sans max-w-2xl mx-auto leading-relaxed">
-                {{ .Params.description }}
-            </p>
-            {{ end }}
-        </header>
+        <!-- BREADCRUMB -->
+        <nav class="text-xs font-bold text-gray-400 mb-6 uppercase tracking-wider flex items-center gap-2">
+            <a href="/" class="hover:text-emerald-600">Home</a> 
+            <span>/</span>
+            <a href="/articles/" class="hover:text-emerald-600">Articles</a>
+            <span>/</span>
+            <span class="text-gray-900">{{ .Title }}</span>
+        </nav>
 
-        <!-- 2. CONTENT AREA -->
-        <div class="px-6 py-10 md:px-12 md:py-12">
-            <!-- Prose Emerald: Styling teks otomatis cantik untuk legal docs -->
-            <div class="prose prose-lg prose-emerald max-w-none text-gray-700 leading-loose prose-headings:font-display prose-headings:font-bold prose-a:text-emerald-600 hover:prose-a:text-emerald-700">
-                {{ .Content }}
-            </div>
+        <!-- 2. GRID SYSTEM (PASTI ADA SIDEBAR) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
 
-            <!-- Last Updated (Penting untuk Trust) -->
-            <div class="mt-12 pt-8 border-t border-stone-100 text-center">
-                <p class="text-xs text-gray-400 font-mono uppercase tracking-widest">
-                    Last Updated: {{ .Lastmod.Format "January 02, 2006" }}
-                </p>
-            </div>
+            <!-- ==========================
+                 KOLOM KIRI: KONTEN (8/12)
+                 ========================== -->
+            <main class="lg:col-span-8 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                
+                <!-- A. GAMBAR UTAMA (FEATURED IMAGE) -->
+                {{ if .Params.featured_image }}
+                <div class="w-full aspect-video bg-gray-200 relative">
+                    <img src="{{ .Params.featured_image | absURL }}" 
+                         alt="{{ .Title }}" 
+                         class="absolute inset-0 w-full h-full object-cover">
+                </div>
+                {{ else }}
+                <!-- Debugging: Kalau gambar ga ada, muncul kotak abu -->
+                <div class="w-full h-20 bg-gray-800 flex items-center justify-center text-white text-xs">
+                    [NO FEATURED IMAGE DETECTED IN FRONT MATTER]
+                </div>
+                {{ end }}
+
+                <!-- B. ISI ARTIKEL -->
+                <div class="p-6 md:p-10">
+                    
+                    <!-- Judul -->
+                    <h1 class="text-3xl md:text-4xl lg:text-5xl font-black text-gray-900 leading-tight mb-4">
+                        {{ .Title }}
+                    </h1>
+
+                    <!-- Meta -->
+                    <div class="flex items-center gap-4 border-b border-gray-100 pb-6 mb-6">
+                        <div class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                            {{ .Params.author | default "Editor" }}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            {{ .Date.Format "January 02, 2006" }}
+                        </div>
+                    </div>
+
+                    <!-- KONTEN -->
+                    <div class="prose prose-lg prose-emerald max-w-none">
+                        {{ .Content }}
+                    </div>
+
+                    <!-- Tags -->
+                    {{ if .Params.tags }}
+                    <div class="mt-8 pt-6 border-t border-gray-100 flex flex-wrap gap-2">
+                        {{ range .Params.tags }}
+                        <a href="/tags/{{ . | urlize }}" class="bg-gray-100 text-gray-600 text-xs font-bold px-3 py-1 rounded-full hover:bg-emerald-600 hover:text-white transition">#{{ . }}</a>
+                        {{ end }}
+                    </div>
+                    {{ end }}
+                </div>
+            </main>
+
+            <!-- ==========================
+                 KOLOM KANAN: SIDEBAR (4/12)
+                 ========================== -->
+            <aside class="lg:col-span-4 w-full">
+                
+                <!-- Sticky Wrapper -->
+                <div class="sticky top-24 space-y-6">
+
+                    <!-- WIDGET 1: TEST SIDEBAR (KUNING) -->
+                    <!-- Kalau kotak kuning ini muncul, berarti Layout SUDAH BENAR -->
+                    <div class="bg-yellow-100 border-2 border-yellow-400 p-4 rounded text-center">
+                        <p class="text-xs font-bold text-yellow-800 uppercase">
+                            ✅ SIDEBAR DETECTED
+                        </p>
+                    </div>
+
+                    <!-- WIDGET 2: RECENT POSTS -->
+                    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                            <h3 class="font-bold text-gray-900 uppercase text-xs tracking-widest">
+                                Recent Articles
+                            </h3>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            <!-- LOGIC: Ambil SEMUA halaman regular -->
+                            {{ range first 5 .Site.RegularPages }}
+                            <a href="{{ .Permalink }}" class="block p-4 hover:bg-gray-50 transition">
+                                <h4 class="text-sm font-bold text-gray-900 leading-snug mb-1">{{ .Title }}</h4>
+                                <span class="text-[10px] text-gray-400">{{ .Date.Format "Jan 02" }}</span>
+                            </a>
+                            {{ end }}
+                        </div>
+                    </div>
+
+                    <!-- WIDGET 3: IKLAN PLACEHOLDER -->
+                    <div class="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-center h-64">
+                        <span class="text-gray-300 text-xs font-mono">[ AdSense Vertical ]</span>
+                    </div>
+
+                </div>
+            </aside>
+
         </div>
-
     </div>
-
-    <!-- 3. BACK TO HOME -->
-    <div class="mt-8 text-center">
-        <a href="/" class="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors uppercase tracking-wider">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-            Back to Basecamp
-        </a>
-    </div>
-
 </div>
 {{ end }}
