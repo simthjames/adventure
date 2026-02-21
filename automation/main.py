@@ -28,20 +28,21 @@ except ImportError:
 # ⚙️ CONFIGURATION: FASTPLACE.BIZ.ID
 # ==========================================
 
-# 🔴 PENTING: MASUKKAN API KEY GROQ DI SINI (Bisa banyak, dipisah koma)
-GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "gsk_YOUR_KEY_1, gsk_YOUR_KEY_2") 
+# 🔑 API KEYS (Pastikan variable environment diset atau edit manual di sini)
+GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "") 
 GROQ_API_KEYS = [k.strip() for k in GROQ_KEYS_RAW.split(",") if k.strip()]
 
 # 🌐 DOMAIN SETUP
 WEBSITE_URL = "https://fastplace.biz.id" 
-# Ganti dengan Key IndexNow Anda untuk fastplace.biz.id (generate di indexnow.org)
 INDEXNOW_KEY = "e74819b68a0f40e98f6ec3dc24f610f0" 
 GOOGLE_JSON_KEY = os.environ.get("GOOGLE_INDEXING_KEY", "") 
 
-if not GROQ_API_KEYS or "YOUR_KEY" in GROQ_API_KEYS[0]:
-    print("⚠️ PERINGATAN: Groq API Key belum diisi dengan benar!")
+# Cek API Key
+if not GROQ_API_KEYS:
+    print("❌ FATAL ERROR: Groq API Key is missing! Set env var GROQ_API_KEY")
+    # exit(1) # Uncomment jika ingin strict
 
-# 🔥 PERSONA PENULIS (Expert Branding untuk FastPlace)
+# 🔥 AUTHOR BARU: Persona Expert Adventure (E-E-A-T Friendly)
 AUTHOR_PROFILES = [
     "Leo 'The Ranger' (Certified Mountain Guide)", 
     "Sarah Wilds (Survival Instructor)",
@@ -50,14 +51,14 @@ AUTHOR_PROFILES = [
     "Elena Summit (Alpinist & Gear Reviewer)"
 ]
 
-# 📂 KATEGORI (High CPC & AdSense Friendly)
+# 📂 KATEGORI (Adventure Niche)
 VALID_CATEGORIES = [
     "Hiking Guides", "Survival Skills", "Camping Hacks", 
     "Gear Reviews", "Ultralight Backpacking", "Outdoor Safety",
     "Adventure Travel", "Mountaineering"
 ]
 
-# 📡 SUMBER RSS BERKUALITAS (Adventure Niche)
+# 📡 SUMBER RSS (Adventure & Outdoor News)
 RSS_SOURCES = {
     "Outside Online": "https://www.outsideonline.com/feed/",
     "The Trek": "https://thetrek.co/feed/", 
@@ -71,13 +72,12 @@ IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 
-# Target Artikel Sekali Jalan (Jangan terlalu banyak agar aman)
+# Target per sumber (Total 5-8 artikel per run)
 TARGET_PER_SOURCE = 1
 
 # ==========================================
 # 🧠 HELPER FUNCTIONS
 # ==========================================
-
 def load_link_memory():
     if not os.path.exists(MEMORY_FILE): return {}
     try:
@@ -87,40 +87,86 @@ def load_link_memory():
 def save_link_to_memory(title, slug):
     os.makedirs(DATA_DIR, exist_ok=True)
     memory = load_link_memory()
-    # Simpan URL lengkap agar internal linking valid
     memory[title] = f"/articles/{slug}/" 
     if len(memory) > 500: memory = dict(list(memory.items())[-500:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def fetch_rss_feed(url):
+    """
+    Mengambil RSS dengan Header Browser Lengkap (Anti-Block)
+    """
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/rss+xml, application/xml, text/xml, */*'
     }
+    
     try:
-        print(f"      ... Mengambil RSS...")
+        print(f"      ... Menghubungi Server RSS...")
         response = requests.get(url, headers=headers, timeout=20)
+        
         if response.status_code == 200:
             feed = feedparser.parse(response.content)
             if len(feed.entries) > 0:
-                print(f"      ✅ Berhasil! {len(feed.entries)} artikel ditemukan.")
+                print(f"      ✅ Berhasil! Ditemukan {len(feed.entries)} artikel.")
                 return feed
+            else:
+                print(f"      ⚠️ Status 200 OK, tapi RSS Kosong.")
+                return None
+        else:
+            print(f"      ❌ Gagal: HTTP Status {response.status_code}")
+            return None
+            
     except Exception as e:
-        print(f"      ❌ Gagal Fetch RSS: {e}")
-    return None
+        print(f"      ❌ Error Koneksi: {e}")
+        return None
 
 def clean_ai_content(text):
+    """
+    🔥 FUNGSI PEMBERSIH AGRESIF (ANTI-AI PATTERN)
+    Menghapus Intro/Outro basi, Conclusion, dan frase robotik.
+    """
     if not text: return ""
+    
+    # 1. Hapus Markdown Code Blocks
     text = re.sub(r'^```[a-zA-Z]*\n', '', text)
     text = re.sub(r'\n```$', '', text)
     text = text.replace("```", "")
-    text = re.sub(r'^(Here is a|Sure|Certainly|In this guide).*?\n', '', text, flags=re.IGNORECASE)
-    # Hapus H1 jika ada di dalam body (karena Hugo sudah handle title)
-    text = re.sub(r'^#\s+.*?\n', '', text)
+    
+    # 2. HAPUS HEADER AI (Introduction, Conclusion, dll)
+    # Regex ini menghapus Header + Paragraf pendek di bawahnya jika itu cuma basa-basi
+    patterns_to_remove = [
+        r'^#+\s*Introduction.*?$',
+        r'^#+\s*Conclusion.*?$',
+        r'^#+\s*Summary.*?$',
+        r'^#+\s*The Verdict.*?$',
+        r'^#+\s*Final Thoughts.*?$',
+        r'^#+\s*In Conclusion.*?$'
+    ]
+    
+    for pattern in patterns_to_remove:
+        text = re.sub(pattern, '', text, flags=re.MULTILINE | re.IGNORECASE)
+
+    # 3. Hapus Frase Pembuka AI
+    ai_phrases = [
+        r'^Here is a comprehensive guide.*',
+        r'^In this article, we will explore.*',
+        r'^Welcome to the ultimate guide.*',
+        r'^Let\'s dive in.*',
+        r'^Certainly! Here is.*',
+        r'^This guide will tell you everything.*'
+    ]
+    for phrase in ai_phrases:
+        text = re.sub(phrase, '', text, flags=re.MULTILINE | re.IGNORECASE)
+
+    # 4. Normalisasi Markdown Header
+    text = text.replace("<h1>", "# ").replace("</h1>", "\n")
+    text = text.replace("<h2>", "## ").replace("</h2>", "\n")
+    text = text.replace("<h3>", "### ").replace("</h3>", "\n")
+    
     return text.strip()
 
 # ==========================================
-# 📑 AUTO TOC & SMART INTERLINKING
+# 📑 AUTO TOC (NAVIGASI)
 # ==========================================
 def generate_toc(content_body):
     toc_lines = ["**Table of Contents**\n"]
@@ -130,161 +176,175 @@ def generate_toc(content_body):
 
     for level, title in headers:
         anchor = slugify(title)
-        indent = "  " if level == "###" else ""
-        toc_lines.append(f"{indent}- [{title}](#{anchor})")
+        if level == "##":
+            toc_lines.append(f"- [{title}](#{anchor})")
+        elif level == "###":
+            toc_lines.append(f"  - [{title}](#{anchor})")
     
     return "\n".join(toc_lines) + "\n\n---\n\n"
 
+# ==========================================
+# 🧠 SMART SILO LINKING
+# ==========================================
 def inject_links_into_body(content_body, current_title):
     memory = load_link_memory()
     items = list(memory.items())
     
     if not items: return content_body
     
-    # Cari artikel terkait berdasarkan kata kunci sederhana
+    # Contextual Matching sederhana
     keywords = [w.lower() for w in current_title.split() if len(w) > 4]
     matches = []
     
     for title, url in items:
         if any(k in title.lower() for k in keywords):
             matches.append((title, url))
-            
-    # Jika tidak ada yang match, ambil random (biar tetap ada link)
-    if not matches: 
+    
+    if not matches:
         matches = random.sample(items, min(3, len(items)))
-    else: 
+    else:
         matches = matches[:3]
 
-    link_box = "\n\n> **🏕️ Explore More on FastPlace:**\n"
+    link_box = "\n\n> **🏕️ Read More Adventures:**\n"
     for title, url in matches:
         link_box += f"> - [{title}]({url})\n"
     link_box += "\n"
 
-    # Sisipkan link box setelah paragraf ke-4 atau ke-5
-    parts = content_body.split('\n\n')
-    if len(parts) > 4:
-        parts.insert(3, link_box)
-        return "\n\n".join(parts)
+    # Sisipkan setelah paragraf ke-3 agar tidak mengganggu intro
+    paragraphs = content_body.split('\n\n')
+    if len(paragraphs) > 4:
+        paragraphs.insert(3, link_box)
+        return "\n\n".join(paragraphs)
     
     return content_body + link_box
 
 # ==========================================
-# 🚀 INDEXING (Google & IndexNow)
+# 🚀 INDEXING FUNCTIONS
 # ==========================================
 def submit_to_indexnow(url):
     try:
         endpoint = "https://api.indexnow.org/indexnow"
         host = "fastplace.biz.id"
         data = {
-            "host": host,
-            "key": INDEXNOW_KEY,
+            "host": host, "key": INDEXNOW_KEY,
             "keyLocation": f"https://{host}/{INDEXNOW_KEY}.txt",
             "urlList": [url]
         }
         requests.post(endpoint, json=data, headers={'Content-Type': 'application/json; charset=utf-8'}, timeout=10)
-        print(f"      🚀 IndexNow Submitted: {url}")
+        print(f"      🚀 IndexNow Submitted")
     except Exception as e: print(f"      ⚠️ IndexNow Failed: {e}")
 
 # ==========================================
-# 🎨 IMAGE GENERATOR (Nature/Adventure Style)
+# 🎨 IMAGE GENERATOR (Outdoor Style)
 # ==========================================
 def generate_outdoor_image(prompt, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
     
-    # Prompt Engineering untuk Gambar Realistis
+    # 🔥 GAYA VISUAL: National Geographic Style
     forced_style = "National Geographic photography, cinematic 4k, epic mountain landscape, outdoor gear detail, golden hour lighting, hyper-realistic, sharp focus, 8k resolution"
     
     clean_prompt = prompt.replace("Guide", "").replace("Review", "").strip()
     final_prompt = f"{clean_prompt}, {forced_style}"
     
-    print(f"      🎨 Generating Image: {clean_prompt[:30]}...")
-
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
-    # 1. Pollinations AI (Terbaik & Gratis)
+    print(f"      🎨 Generating Image: {clean_prompt[:30]}...")
+
+    # 1. POLLINATIONS (Priority)
     try:
         seed = random.randint(1, 99999)
         poly_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(final_prompt)}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
-        resp = requests.get(poly_url, headers=headers, timeout=30)
+        resp = requests.get(poly_url, headers=headers, timeout=25)
         if resp.status_code == 200:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
-            img.save(output_path, "WEBP", quality=85)
+            img.save(output_path, "WEBP", quality=90)
             print("      ✅ Image Saved (Pollinations)")
             return f"/images/{filename}"
     except Exception: pass
-    
-    # 2. Fallback: LoremFlickr
+
+    # 2. FLICKR (Fallback)
     try:
-        flickr_url = "https://loremflickr.com/1280/720/hiking,mountain,forest/all"
-        resp = requests.get(flickr_url, headers=headers, timeout=20)
-        img = Image.open(BytesIO(resp.content)).convert("RGB")
-        img.save(output_path, "WEBP", quality=85)
-        print("      ✅ Image Saved (Fallback)")
-        return f"/images/{filename}"
-    except: pass
+        flickr_url = f"https://loremflickr.com/1280/720/hiking,mountain,forest/all"
+        resp = requests.get(flickr_url, headers=headers, timeout=20, allow_redirects=True)
+        if resp.status_code == 200:
+            img = Image.open(BytesIO(resp.content)).convert("RGB")
+            img.save(output_path, "WEBP", quality=90)
+            print("      ✅ Image Saved (Fallback)")
+            return f"/images/{filename}"
+    except Exception: pass
 
     return "/images/default-adventure.webp"
 
 # ==========================================
-# 🧠 AI WRITER (Llama-3.3 70B - Deep Guide Mode)
+# 🧠 CONTENT ENGINE (ANTI-AI PATTERN)
 # ==========================================
 def get_groq_article_json(title, summary, author_name):
-    # Prompt Super Detail untuk AdSense Approval
+    # 🔥 SYSTEM PROMPT: DIRECT & HUMAN-LIKE (NO FLUFF)
+    # Prompt ini memaksa AI untuk TIDAK menulis Introduction/Conclusion
     system_prompt = f"""
-    You are {author_name}, a professional Outdoor Guide writing for 'FastPlace Adventure'.
+    You are {author_name}, a rugged, no-nonsense Outdoor Expert. 
+    You are writing for 'FastPlace', a site for serious adventurers.
     
-    OBJECTIVE: Write a COMPREHENSIVE, EVERGREEN GUIDE (Target: 1800+ words).
+    RULE 1: START IMMEDIATELY. Do NOT use "Introduction", "In this guide", or "Welcome". 
+    Start directly with the problem or the hook. (e.g., "Your boots are the only thing separating you from a broken ankle...")
     
-    INPUT: You will get a news headline or topic.
-    TASK: Pivot this into a "How-to Guide" or "Ultimate Tutorial". Do NOT write news.
+    RULE 2: NO "CONCLUSION" HEADERS. Do not write "## Conclusion". Just end the article with a final pro-tip or a safety warning.
     
-    MANDATORY STRUCTURE (Markdown):
-    1. **Introduction**: Hook the reader immediately. Why is this topic crucial for adventurers?
-    2. **Key Takeaways / At a Glance**: A small table or list summarizing the guide.
-    3. **Gear Checklist** (If applicable): Bullet points of what is needed.
-    4. **Safety & Preparation**: Crucial for outdoor niche.
-    5. **Step-by-Step Guide** (The Meat): Use H3 (###) for steps. Be extremely detailed.
-    6. **Pro Tips from the Field**: Secret tips only experts know.
-    7. **Common Mistakes to Avoid**: Save the reader from failure.
-    8. **FAQ**: 5 relevant questions and detailed answers.
+    RULE 3: STRUCTURE. Use these specific headers instead of generic ones:
+    - Instead of "Introduction", use a Story Hook.
+    - Instead of "Steps", use "The Protocol" or "Field Execution".
+    - Instead of "Tools", use "Gear Loadout".
+    - Instead of "Tips", use "Ranger Secrets".
     
-    TONE: Helpful, Authoritative, Inspiring, Safety-Conscious.
+    RULE 4: TONE. Be authoritative, slightly gritty, but educational. Use short paragraphs.
+    
+    OBJECTIVE: Turn the input topic into a 1500+ word deep-dive manual.
     
     OUTPUT JSON FORMAT:
     {{
-        "title": "A catchy, SEO-optimized title (e.g., 'The Ultimate Guide to...')",
-        "description": "Meta description (150 chars) with keywords",
+        "title": "Clickworthy Title (No Clickbait, Just Value)",
+        "description": "Meta description (150 chars)",
         "category": "One of: {', '.join(VALID_CATEGORIES)}",
-        "main_keyword": "Primary SEO keyword",
+        "main_keyword": "SEO Keyword",
         "tags": ["tag1", "tag2", "tag3"],
-        "content_body": "Full markdown content (exclude title)..."
+        "content_body": "Full markdown content (No Title H1)..."
     }}
     """
     
-    user_prompt = f"TOPIC: {title}\nCONTEXT: {summary}\n\nWrite the ultimate guide based on this."
+    # User prompt memaksa AI untuk "Pivot" dari berita ke Panduan
+    user_prompt = f"""
+    TOPIC: {title}
+    CONTEXT: {summary}
+    
+    TASK: Write a Master-Level Guide based on this. 
+    If it's about a new product, review it strictly.
+    If it's news, pivot to "How this affects hikers".
+    
+    REMEMBER: NO INTRODUCTIONS. NO CONCLUSIONS. START NOW.
+    """
     
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing (Deep Guide Mode)...")
+            print(f"      🤖 AI Writing (Direct-Mode 1500+ Words)...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.6,
-                max_tokens=6500, # Max token besar untuk artikel panjang
+                temperature=0.7, # Sedikit lebih kreatif agar tidak kaku
+                max_tokens=7000,
                 response_format={"type": "json_object"}
             )
             return completion.choices[0].message.content
         except RateLimitError:
-            print("      ⚠️ Limit reached, switching key...")
+            print("      ⚠️ Rate Limit Hit, switching key...")
             time.sleep(2)
-        except Exception as e:
-            print(f"      ⚠️ Error: {e}")
+        except Exception as e: 
+            print(f"      ⚠️ Groq Error: {e}")
     return None
 
 # ==========================================
@@ -294,88 +354,100 @@ def main():
     os.makedirs(CONTENT_DIR, exist_ok=True)
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
-    
-    print("🌲 FASTPLACE ADVENTURE ENGINE STARTED")
+
+    print("🌲 FASTPLACE ADVENTURE ENGINE (ANTI-SPAM EDITION) STARTED")
 
     for source_name, rss_url in RSS_SOURCES.items():
-        print(f"\n📡 Scanning: {source_name}")
+        print(f"\n📡 Reading: {source_name}")
         feed = fetch_rss_feed(rss_url)
         if not feed: continue
+
+        processed_count = 0
         
-        count = 0
         for entry in feed.entries:
-            if count >= TARGET_PER_SOURCE: break
+            if processed_count >= TARGET_PER_SOURCE:
+                print(f"   🛑 Target reached for {source_name}")
+                break
             
             clean_title = entry.title.split(" - ")[0]
+            # Slug dari judul asli dulu
+            slug = slugify(clean_title, max_length=60, word_boundary=True)
+            filename = f"{slug}.md"
             
-            # Cek Duplikasi (Sederhana)
-            slug_candidate = slugify(clean_title)
-            if any(slug_candidate in f for f in os.listdir(CONTENT_DIR)):
-                print(f"   ⏩ Skipped (Exist): {clean_title[:30]}...")
+            # Cek jika file sudah ada
+            if os.path.exists(f"{CONTENT_DIR}/{filename}"): 
+                print(f"   ⏩ Skipped (Ada): {clean_title[:30]}...")
                 continue
             
             print(f"   ⚡ Processing: {clean_title[:40]}...")
             
             author = random.choice(AUTHOR_PROFILES)
-            ai_json = get_groq_article_json(clean_title, entry.summary, author)
+            raw_json = get_groq_article_json(clean_title, entry.summary, author)
             
-            if not ai_json: continue
-            
+            if not raw_json: continue
             try:
-                data = json.loads(ai_json)
-            except: 
-                print("      ❌ JSON Error"); continue
+                data = json.loads(raw_json)
+            except:
+                print("      ❌ JSON Parse Error")
+                continue
 
-            # Finalize Data
-            final_slug = slugify(data['title'])
-            filename = f"{final_slug}.md"
-            img_filename = f"{final_slug}.webp"
-            
-            # Generate Image
-            img_path = generate_outdoor_image(data['main_keyword'], img_filename)
-            
-            # Clean & Build Content
-            body = clean_ai_content(data['content_body'])
-            toc = generate_toc(body)
-            body_linked = inject_links_into_body(body, data['title'])
-            
-            full_content = toc + body_linked
-            
-            # Fallback Category
-            cat = data.get('category', "Adventure Guides")
-            if cat not in VALID_CATEGORIES: cat = random.choice(VALID_CATEGORIES)
+            # Update slug jika judul berubah drastis (agar URL relevan dengan konten How-To)
+            new_slug = slugify(data['title'], max_length=60, word_boundary=True)
+            if new_slug != slug:
+                filename = f"{new_slug}.md"
+                slug = new_slug
 
-            # Create Frontmatter Markdown (Hugo Style)
-            md = f"""---
+            # 1. Generate Image (Outdoor Style)
+            image_prompt = data.get('main_keyword', clean_title)
+            final_img_path = generate_outdoor_image(image_prompt, f"{slug}.webp")
+            
+            # 2. Clean Content (Hapus Intro Basi)
+            clean_body = clean_ai_content(data['content_body'])
+            
+            # 3. Generate TOC + Links
+            toc_content = generate_toc(clean_body)
+            body_with_links = inject_links_into_body(clean_body, data['title'])
+            
+            # Gabungkan: TOC + Body
+            final_body = toc_content + body_with_links
+            
+            # 4. Fallback Category
+            if data.get('category') not in VALID_CATEGORIES:
+                data['category'] = "Adventure Guides"
+
+            # 5. Create Markdown File (Hugo Style)
+            md_content = f"""---
 title: "{data['title'].replace('"', "'")}"
 date: {datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")}
 author: "{author}"
-categories: ["{cat}"]
+categories: ["{data['category']}"]
 tags: {json.dumps(data.get('tags', []))}
-featured_image: "{img_path}"
+featured_image: "{final_img_path}"
 description: "{data['description'].replace('"', "'")}"
-slug: "{final_slug}"
+slug: "{slug}"
+url: "/articles/{slug}/"
 draft: false
+weight: {random.randint(1, 10)}
 ---
 
-{full_content}
+{final_body}
 
 ---
-*Disclaimer: Outdoor activities involve risk. Always prioritize safety and preparation. This guide is for educational purposes only.*
+*Disclaimer: Outdoor activities carry inherent risks. Always prepare adequately. Content generated for educational purposes.*
 """
-            
             with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
-                f.write(md)
+                f.write(md_content)
             
-            # Save to memory & IndexNow
-            save_link_to_memory(data['title'], final_slug)
-            submit_to_indexnow(f"{WEBSITE_URL}/articles/{final_slug}/")
+            save_link_to_memory(data['title'], slug)
             
-            print(f"      ✅ Published: {filename}")
-            count += 1
+            full_url = f"{WEBSITE_URL}/articles/{slug}/"
+            submit_to_indexnow(full_url)
+
+            print(f"      ✅ Published: {slug}")
+            processed_count += 1
             
-            print("      💤 Cooldown 30s...")
-            time.sleep(30)
+            print("      💤 Sleeping for 60s...")
+            time.sleep(60)
 
 if __name__ == "__main__":
     main()
