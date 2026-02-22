@@ -1,6 +1,6 @@
 baseURL: "https://fastplace.biz.id/"
 languageCode: "en-us"
-title: "JeepMe"
+title: "fastplace"
 canonifyURLs: true
 
 permalinks:
@@ -39,8 +39,8 @@ taxonomies:
   tag: "tags"
 
 params:
-  description: "Your #1 source for breaking Jeeps news."
-  defaultImage: "/images/default-Jeeps.jpg"
+  description: "Your #1 source for breaking Adventure."
+  defaultImage: "/images/default-Adventure.jpg"
   author:
     name: "JeepMe Team"
-    email: "contact@JeepMe.com"
+    email: "contact@fastplace.com"
