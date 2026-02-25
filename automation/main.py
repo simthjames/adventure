@@ -31,7 +31,7 @@ if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing! Set env var GROQ_API_KEY")
     exit(1)
 
-# 🔥 PERSONA PENULIS
+# 🔥 PERSONA PENULIS (Expert Level)
 AUTHOR_PROFILES = [
     "Leo 'The Ranger' (Certified Mountain Guide)", 
     "Sarah Wilds (Survival Instructor)",
@@ -52,7 +52,8 @@ SEED_KEYWORDS = [
     "Hiking gear checklist", "Camping survival tips", "Backpacking essentials", 
     "Wilderness first aid", "Best hiking boots guide", "Winter camping guide",
     "Ultralight backpacking tips", "Outdoor navigation skills", "Bushcraft shelter",
-    "Trekking pole guide", "Tent maintenance tips", "Sleeping bag selection"
+    "Trekking pole guide", "Tent maintenance tips", "Sleeping bag selection",
+    "Bear safety protocols", "Water filtration wild", "Solo hiking safety"
 ]
 
 CONTENT_DIR = "content/articles" 
@@ -79,15 +80,24 @@ def save_link_to_memory(title, slug):
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def optimize_seo_slug(text, main_keyword=None):
+    # Stop words yang dibuang dari URL
     stop_words = [
         'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 
         'with', 'in', 'of', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'that', 
-        'this', 'guide', 'review', 'best', 'top', 'ultimate', 'complete', 'how', 'tips'
+        'this', 'guide', 'review', 'best', 'top', 'ultimate', 'complete', 'how', 'tips',
+        'comprehensive', 'essential'
     ]
+    
+    # Gunakan main keyword jika ada, karena lebih SEO friendly
     source_text = main_keyword if main_keyword and len(main_keyword.split()) > 1 else text
+    
     words = slugify(source_text).split('-')
     clean_words = [w for w in words if w not in stop_words]
+    
+    # Jika hasil filter kosong, pakai slug asli
     if not clean_words: clean_words = words
+    
+    # Batasi 4-5 kata agar tajam
     final_slug = "-".join(clean_words[:5])
     return final_slug
 
@@ -128,14 +138,18 @@ def clean_markdown_body(text):
     text = re.sub(r'^```[a-zA-Z]*\n', '', text)
     text = re.sub(r'\n```$', '', text)
     text = text.replace("```", "")
-    patterns = [r'^#+\s*Introduction', r'^#+\s*Conclusion', r'^#+\s*Summary']
+    
+    # Hapus Header Basi
+    patterns = [r'^#+\s*Introduction', r'^#+\s*Conclusion', r'^#+\s*Summary', r'^#+\s*Verdict']
     for p in patterns:
         text = re.sub(p, '', text, flags=re.MULTILINE | re.IGNORECASE)
+    
+    # Fix Spacing Headers
     text = re.sub(r'([^\n])\n(#{2,4}\s)', r'\1\n\n\2', text)
     return text.strip()
 
 # ==========================================
-# 📑 NAVIGASI & LINKS (INTERNAL + EXTERNAL)
+# 📑 NAVIGASI & LINKS
 # ==========================================
 def generate_toc(content_body):
     headers = re.findall(r'^(#{2,3})\s+(.+)$', content_body, flags=re.MULTILINE)
@@ -148,7 +162,6 @@ def generate_toc(content_body):
     return "\n".join(toc_lines) + "\n\n---\n\n"
 
 def inject_smart_links(content_body, current_title):
-    # 1. Coba Internal Linking
     memory = load_link_memory()
     internal_links = []
     
@@ -161,34 +174,32 @@ def inject_smart_links(content_body, current_title):
             if len(common) > 0:
                 internal_links.append((title, url))
         
-        # Fallback random internal
         if not internal_links:
             items = list(memory.items())
             internal_links = random.sample(items, min(3, len(items)))
         else:
             internal_links = internal_links[:3]
 
-    # 2. Coba External Linking (Jika Internal kurang dari 2)
-    # Ini penting agar tidak dianggap "Orphan Page" dan menambah Trust
     external_links = [
         ("Leave No Trace Principles", "https://lnt.org/"),
         ("American Hiking Society", "https://americanhiking.org/"),
         ("National Park Service", "https://www.nps.gov/"),
-        ("Wilderness Medical Society", "https://wms.org/"),
-        ("REI Expert Advice", "https://www.rei.com/learn/expert-advice")
+        ("Wilderness Medical Society", "https://wms.org/")
     ]
     
     final_box = ""
     
+    # Jika ada internal link, tampilkan
     if internal_links:
-        final_box += "\n\n> **🏕️ Read More on FastPlace:**\n"
+        final_box += "\n\n> **🏕️ Read More Adventures:**\n"
         for title, url in internal_links:
             final_box += f"> - [{title}]({url})\n"
     
-    # Tambahkan External Link jika internal masih sedikit (awal membangun blog)
+    # Jika internal link sedikit, tambah external agar tidak kosong
     if len(internal_links) < 2:
         ext_link = random.choice(external_links)
-        final_box += f"\n> **🔗 External Resource:** [{ext_link[0]}]({ext_link[1]})\n"
+        if not internal_links: final_box += "\n\n> **🏕️ Recommended Resource:**\n"
+        final_box += f"> - [{ext_link[0]}]({ext_link[1]})\n"
 
     final_box += "\n"
 
@@ -215,85 +226,96 @@ def submit_to_indexnow(url):
     except Exception: pass
 
 # ==========================================
-# 🎨 IMAGE GENERATOR (ROBUST VERSION)
+# 🎨 IMAGE GENERATOR (NO POLLINATIONS!)
 # ==========================================
 def generate_outdoor_image(prompt, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
-    # Default Image (Pastikan file ini ada di folder static/images!)
     default_img = "/images/default-adventure.webp"
     
-    forced_style = "National Geographic photography, cinematic 4k, epic mountain landscape, outdoor gear detail, golden hour lighting, hyper-realistic, sharp focus, 8k resolution"
+    # Style: Cinematic Nature (Untuk Hercai)
+    forced_style = "realistic national geographic photography, mountains, hiking gear, forest, cinematic lighting, 8k"
+    
     clean_prompt = prompt.replace("Guide", "").replace("Review", "").strip()
     final_prompt = f"{clean_prompt}, {forced_style}"
     
     print(f"      🎨 Generating Image: {clean_prompt[:30]}...")
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # 1. POLLINATIONS (Metode Utama)
+    # 1. HERCAI (PRIORITY AI - STABIL)
     try:
-        seed = random.randint(1, 99999)
-        poly_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(final_prompt)}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
-        resp = requests.get(poly_url, headers=headers, timeout=40) # Timeout diperpanjang
+        print("      🔄 Trying Hercai AI...")
+        hercai_url = f"https://hercai.onrender.com/v3/text2image?prompt={requests.utils.quote(final_prompt)}"
+        resp = requests.get(hercai_url, headers=headers, timeout=40)
         
-        # Validasi: Status 200 DAN Ukuran file > 2KB (untuk hindari file corrupt 0 byte)
-        if resp.status_code == 200 and len(resp.content) > 2048:
-            img = Image.open(BytesIO(resp.content)).convert("RGB")
-            img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved (Pollinations)")
-            return f"/images/{filename}"
-        else:
-            print("      ⚠️ Image generated but file too small/corrupt.")
+        if resp.status_code == 200:
+            data = resp.json()
+            if "url" in data:
+                img_data = requests.get(data["url"], headers=headers, timeout=30).content
+                if len(img_data) > 3000:
+                    img = Image.open(BytesIO(img_data)).convert("RGB")
+                    img.save(output_path, "WEBP", quality=90)
+                    print("      ✅ Image Saved (Hercai AI)")
+                    return f"/images/{filename}"
     except Exception as e:
-        print(f"      ⚠️ Pollinations Error: {e}")
+        print(f"      ⚠️ Hercai Error: {e}")
     
-    # 2. FLICKR (Fallback)
+    # 2. FLICKR (BACKUP - REAL PHOTO)
     try:
-        print("      🔄 Trying Fallback (Flickr)...")
-        # Keyword generik biar pasti dapet
-        flickr_url = f"https://loremflickr.com/1280/720/mountain,forest/all"
+        print("      🔄 Trying Flickr (Real Photo)...")
+        # Gunakan tag yang lebih luas agar pasti dapat gambar
+        flickr_url = f"https://loremflickr.com/1280/720/adventure,mountain/all"
         resp = requests.get(flickr_url, headers=headers, timeout=30, allow_redirects=True)
-        if resp.status_code == 200 and len(resp.content) > 2048:
+        if resp.status_code == 200 and len(resp.content) > 3000:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
             img.save(output_path, "WEBP", quality=90)
-            print("      ✅ Image Saved (Flickr Fallback)")
+            print("      ✅ Image Saved (Flickr Stock)")
             return f"/images/{filename}"
     except Exception: pass
 
-    print("      ❌ Image Gen Failed. Using Default.")
+    print("      ❌ All Generators Failed. Using Default.")
     return default_img
 
 # ==========================================
-# 🧠 AI ENGINE
+# 🧠 AI ENGINE (PRO TITLES)
 # ==========================================
 def get_groq_article_markdown(keyword, author_name):
     current_time = datetime.now().strftime("%B %Y")
     
+    # 🔥 SYSTEM PROMPT: TITLE POLICE
     system_prompt = f"""
-    You are {author_name}, a world-class Outdoor Expert.
+    You are {author_name}, a veteran editor for an elite Outdoor Magazine (like Outside or Backpacker).
     Current Date: {current_time}.
     
-    TASK: Write a High-Quality Guide about "{keyword}".
+    TASK: Write a Feature Article about "{keyword}".
+    
+    🚨 TITLE RULES (STRICT):
+    1. NEVER use: "The Ultimate Guide", "Comprehensive Guide", "10 Tips", "Beginner's Guide".
+    2. NEVER use boring, generic titles.
+    3. CREATE Magazine-Style Titles. Use conflict, curiosity, or strong statements.
+       - BAD: "The Ultimate Guide to Hiking Boots"
+       - GOOD: "Why Your Hiking Boots Are Killing Your Feet (And How to Fix It)"
+       - BAD: "10 Tips for Winter Camping"
+       - GOOD: "Surviving the Freeze: The Zero-Degree Protocol Experts Use"
     
     OUTPUT FORMAT:
-    You must output a VALID MARKDOWN file with a YAML Frontmatter block at the very top.
+    VALID MARKDOWN with YAML Frontmatter.
     
     Structure:
     ---
-    title: "Viral Title (Use Numbers or 'How To')"
-    description: "SEO description (max 150 chars)"
+    title: "INSERT YOUR PRO TITLE HERE"
+    description: "Compelling meta description (150 chars)"
     category: "Hiking Guides"
     tags: ["tag1", "tag2"]
     main_keyword: "{keyword}"
     ---
     
-    [CONTENT START]
+    [CONTENT START - NO INTRO HEADER]
     
-    RULES:
-    1. NO "Introduction" or "Conclusion" headers. Start with a Hook.
-    2. Use H2 (##) and H3 (###) extensively.
-    3. Include a "Gear Checklist" section.
-    4. Mention "{current_time}" naturally in the text.
-    5. Tone: Experienced, Safety-conscious, Helpful.
+    CONTENT RULES:
+    1. Use H2 (##) and H3 (###) for deep structure.
+    2. Paragraphs must be short and punchy.
+    3. Include a "Gear Loadout" section.
+    4. Include "Pro Tips" box.
     """
     
     user_prompt = f"Topic: {keyword}\n\nWrite the article now."
@@ -301,14 +323,14 @@ def get_groq_article_markdown(keyword, author_name):
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing Deep-Dive (Markdown Mode)...")
+            print(f"      🤖 AI Writing (Magazine Style)...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.6,
+                temperature=0.7, # Sedikit kreatif untuk judul
                 max_tokens=7500,
             )
             return completion.choices[0].message.content
@@ -348,7 +370,7 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🌲 FASTPLACE PRO ENGINE STARTED")
+    print("🌲 FASTPLACE PRO ENGINE (NO-POLLINATIONS) STARTED")
 
     trending_topics = fetch_trending_topics(SEED_KEYWORDS, max_results=TARGET_ARTICLES)
     
@@ -386,7 +408,9 @@ def main():
         filename = f"{final_slug}.md"
         img_filename = f"{final_slug}.webp"
         
+        # IMAGE GENERATION (HERCAI / FLICKR)
         img_path = generate_outdoor_image(main_kw, img_filename)
+        
         clean_body = clean_markdown_body(body_content)
         final_body = generate_toc(clean_body) + inject_smart_links(clean_body, title)
         
