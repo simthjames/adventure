@@ -17,23 +17,13 @@ from pytrends.request import TrendReq
 # --- SUPPRESS WARNINGS ---
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# --- GOOGLE INDEXING LIBS (Optional) ---
-try:
-    from oauth2client.service_account import ServiceAccountCredentials
-    from googleapiclient.discovery import build
-    GOOGLE_LIBS_AVAILABLE = True
-except ImportError:
-    GOOGLE_LIBS_AVAILABLE = False
-
 # ==========================================
 # ⚙️ CONFIGURATION: FASTPLACE.BIZ.ID
 # ==========================================
 
-# 🔑 API KEYS
 GROQ_KEYS_RAW = os.environ.get("GROQ_API_KEY", "") 
 GROQ_API_KEYS = [k.strip() for k in GROQ_KEYS_RAW.split(",") if k.strip()]
 
-# 🌐 DOMAIN SETUP
 WEBSITE_URL = "https://fastplace.biz.id" 
 INDEXNOW_KEY = "e74819b68a0f40e98f6ec3dc24f610f0" 
 
@@ -41,7 +31,7 @@ if not GROQ_API_KEYS:
     print("❌ FATAL ERROR: Groq API Key is missing! Set env var GROQ_API_KEY")
     exit(1)
 
-# 🔥 PERSONA PENULIS (Expert Level)
+# 🔥 PERSONA PENULIS
 AUTHOR_PROFILES = [
     "Leo 'The Ranger' (Certified Mountain Guide)", 
     "Sarah Wilds (Survival Instructor)",
@@ -57,8 +47,7 @@ VALID_CATEGORIES = [
     "Adventure Travel", "Mountaineering"
 ]
 
-# 📈 SEED KEYWORDS (Pancingan untuk Google Trends)
-# Kita gunakan topik 'Broad' agar AI bisa menulis panjang lebar (Evergreen)
+# 📈 SEED KEYWORDS
 SEED_KEYWORDS = [
     "Hiking gear checklist", "Camping survival tips", "Backpacking essentials", 
     "Wilderness first aid", "Best hiking boots guide", "Winter camping guide",
@@ -71,8 +60,7 @@ IMAGE_DIR = "static/images"
 DATA_DIR = "automation/data"
 MEMORY_FILE = f"{DATA_DIR}/link_memory.json"
 
-# Target Artikel per Run
-TARGET_ARTICLES = 1  # Fokus kualitas per run (Long Form butuh waktu generate lama)
+TARGET_ARTICLES = 1  
 
 # ==========================================
 # 🧠 HELPER FUNCTIONS
@@ -90,14 +78,41 @@ def save_link_to_memory(title, slug):
     if len(memory) > 500: memory = dict(list(memory.items())[-500:])
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
+def optimize_seo_slug(text, main_keyword=None):
+    """
+    🔥 SMART SEO SLUG:
+    1. Prioritaskan Main Keyword jika ada (karena itu inti SEO).
+    2. Hapus Stop Words (kata sambung).
+    3. Batasi maks 5 kata.
+    """
+    # List kata sambung bahasa Inggris yang tidak perlu ada di URL
+    stop_words = [
+        'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 
+        'with', 'in', 'of', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'that', 
+        'this', 'guide', 'review', 'best', 'top', 'ultimate', 'complete', 'how', 'tips'
+    ]
+    
+    # Jika ada main_keyword, gunakan itu sebagai basis slug (Lebih SEO Friendly)
+    source_text = main_keyword if main_keyword and len(main_keyword.split()) > 1 else text
+    
+    # Bersihkan text
+    words = slugify(source_text).split('-')
+    
+    # Filter stop words
+    clean_words = [w for w in words if w not in stop_words]
+    
+    # Jika setelah filter kosong (misal judulnya cuma "The Best Guide"), kembalikan ke original
+    if not clean_words:
+        clean_words = words
+        
+    # Batasi maksimal 5 kata agar URL pendek & tajam
+    final_slug = "-".join(clean_words[:5])
+    
+    return final_slug
+
 def fetch_trending_topics(keywords, max_results=3):
-    """
-    Mengambil 'Rising Queries' + Fallback Cerdas
-    """
     print(f"      ... Menghubungi Google Trends...")
     topics = []
-    
-    # Random delay agar terlihat natural
     time.sleep(random.uniform(2, 5))
     
     try:
@@ -112,94 +127,70 @@ def fetch_trending_topics(keywords, max_results=3):
             df_rising = related[current_kw]['rising']
             for index, row in df_rising.iterrows():
                 query = row['query']
-                if len(query.split()) > 3: # Ambil Long Tail Keyword
+                # Ambil keyword yang spesifik (Long Tail) tapi populer
+                if len(query.split()) > 2:
                     topics.append(query.title())
                     if len(topics) >= max_results: break
             
             if len(topics) > 0:
                 print(f"      ✅ Ditemukan {len(topics)} topik trending.")
                 return topics
-            
-        print("      ⚠️ Tidak ada lonjakan signifikan, menggunakan Seed Keyword dengan Tahun.")
-        return [f"{current_kw} {datetime.now().year}"]
+        
+        print("      ⚠️ Menggunakan Seed Keyword (Fallback).")
+        return [f"{current_kw}"]
             
     except Exception as e:
         print(f"      ⚠️ GTrends Fallback: {e}")
-        # Jika G-Trends error, gunakan Seed Keyword + Tahun agar tetap Fresh
-        return [f"{random.choice(keywords)} {datetime.now().year}"]
+        return [f"{random.choice(keywords)}"]
 
-def clean_ai_content(text):
+def clean_markdown_body(text):
     if not text: return ""
-    
-    # Hapus Markdown Code
     text = re.sub(r'^```[a-zA-Z]*\n', '', text)
     text = re.sub(r'\n```$', '', text)
     text = text.replace("```", "")
     
-    # Hapus Header Basi (Intro/Conclusion/Summary)
-    patterns_to_remove = [
-        r'^#+\s*Introduction.*?$', r'^#+\s*Conclusion.*?$', 
-        r'^#+\s*Summary.*?$', r'^#+\s*The Verdict.*?$',
-        r'^#+\s*Final Thoughts.*?$', r'^#+\s*In Conclusion.*?$'
-    ]
-    for pattern in patterns_to_remove:
-        text = re.sub(pattern, '', text, flags=re.MULTILINE | re.IGNORECASE)
+    # Hapus Header Basi
+    patterns = [r'^#+\s*Introduction', r'^#+\s*Conclusion', r'^#+\s*Summary']
+    for p in patterns:
+        text = re.sub(p, '', text, flags=re.MULTILINE | re.IGNORECASE)
 
-    # Hapus Frase Robot
-    ai_phrases = [
-        r'^Here is a comprehensive guide.*', r'^In this article.*',
-        r'^Welcome to the ultimate guide.*', r'^Let\'s dive in.*'
-    ]
-    for phrase in ai_phrases:
-        text = re.sub(phrase, '', text, flags=re.MULTILINE | re.IGNORECASE)
-
-    # Normalisasi Header
-    text = text.replace("<h1>", "# ").replace("</h1>", "\n")
-    text = text.replace("<h2>", "## ").replace("</h2>", "\n")
-    text = text.replace("<h3>", "### ").replace("</h3>", "\n")
-    text = text.replace("<h4>", "#### ").replace("</h4>", "\n")
-    
+    # Fix Spacing Headers
+    text = re.sub(r'([^\n])\n(#{2,4}\s)', r'\1\n\n\2', text)
     return text.strip()
 
 # ==========================================
-# 📑 NAVIGASI & SMART SILO LINKING
+# 📑 NAVIGASI & LINKS
 # ==========================================
 def generate_toc(content_body):
-    toc_lines = ["**Table of Contents**\n"]
     headers = re.findall(r'^(#{2,3})\s+(.+)$', content_body, flags=re.MULTILINE)
-    if not headers: return ""
+    if not headers: return "" 
+
+    toc_lines = ["**Table of Contents**\n"]
     for level, title in headers:
         anchor = slugify(title)
         indent = "  " if level == "###" else ""
         toc_lines.append(f"{indent}- [{title}](#{anchor})")
+    
     return "\n".join(toc_lines) + "\n\n---\n\n"
 
 def inject_smart_links(content_body, current_title):
     memory = load_link_memory()
     if not memory: return content_body
     
-    # Pecah judul jadi kata kunci (misal: "Hiking Boots" -> ["hiking", "boots"])
     current_keywords = set(current_title.lower().split())
-    
     relevant_links = []
     
-    # Cari artikel lain yang punya kata kunci sama
     for title, url in memory.items():
         title_words = set(title.lower().split())
-        # Jika ada irisan kata kunci (selain kata umum)
         common = current_keywords.intersection(title_words)
-        # Filter kata umum
         common = [w for w in common if len(w) > 4] 
-        
         if len(common) > 0:
             relevant_links.append((title, url))
     
-    # Jika tidak ada yang relevan, ambil random
     if not relevant_links:
         relevant_items = list(memory.items())
         final_links = random.sample(relevant_items, min(3, len(relevant_items)))
     else:
-        # Ambil max 3 link relevan
         final_links = relevant_links[:3]
 
     if not final_links: return content_body
@@ -209,7 +200,6 @@ def inject_smart_links(content_body, current_title):
         link_box += f"> - [{title}]({url})\n"
     link_box += "\n"
 
-    # Sisip di tengah artikel (Paragraf ke-5)
     paragraphs = content_body.split('\n\n')
     if len(paragraphs) > 6:
         paragraphs.insert(5, link_box)
@@ -242,10 +232,8 @@ def generate_outdoor_image(prompt, filename):
     final_prompt = f"{clean_prompt}, {forced_style}"
     
     print(f"      🎨 Generating Image: {clean_prompt[:30]}...")
-    
     headers = {"User-Agent": "Mozilla/5.0"}
 
-    # 1. Pollinations
     try:
         seed = random.randint(1, 99999)
         poly_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(final_prompt)}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
@@ -256,86 +244,87 @@ def generate_outdoor_image(prompt, filename):
             return f"/images/{filename}"
     except: pass
     
-    # 2. Fallback
-    try:
-        flickr_url = f"https://loremflickr.com/1280/720/hiking,nature/all"
-        resp = requests.get(flickr_url, headers=headers, timeout=20, allow_redirects=True)
-        img = Image.open(BytesIO(resp.content)).convert("RGB")
-        img.save(output_path, "WEBP", quality=90)
-        return f"/images/{filename}"
-    except: return "/images/default-adventure.webp"
+    return "/images/default-adventure.webp"
 
 # ==========================================
-# 🧠 AI ENGINE (DEEP DIVE 1500+ WORDS)
+# 🧠 AI ENGINE (RAW MARKDOWN MODE)
 # ==========================================
-def get_groq_article_json(keyword, author_name):
-    
+def get_groq_article_markdown(keyword, author_name):
     current_time = datetime.now().strftime("%B %Y")
     
-    # 🔥 SYSTEM PROMPT: THE MONSTER INSTRUCTION
-    # Memaksa struktur H2 -> H3 -> H4 dan Panjang > 1500 Kata
+    # 🔥 PROMPT YANG DIPERBAIKI
+    # Fokus: Output Markdown yang bersih & Keyword Density yang wajar
     system_prompt = f"""
-    You are {author_name}, a world-class Outdoor Expert & Instructor.
+    You are {author_name}, a world-class Outdoor Expert.
     Current Date: {current_time}.
     
-    OBJECTIVE: Write a MASSIVE, DEFINITIVE GUIDE (Target: 1800+ Words) about: "{keyword}".
+    TASK: Write a High-Quality Guide about "{keyword}".
     
-    CRITICAL RULES FOR "QUALITY & DEPTH":
-    1. **NO FLUFF:** Do NOT write "Introduction", "Conclusion", or "Summary". Start immediately with a Story Hook or a Hard Fact.
-    2. **DEEP HIERARCHY:** You MUST use H2, H3, and H4 to break down complex topics.
-       - H2: Major Section (e.g., "The Layering System")
-       - H3: Sub-Topic (e.g., "Base Layers: Merino vs Synthetic")
-       - H4: Detail/Nuance (e.g., "Why 250gsm Merino is best for February")
-    3. **FRESHNESS:** Mention that this guide is updated for the **{current_time}** season/standards.
-    4. **FORMATTING:** Use Bullet points, Bold text for emphasis, and Numbered lists.
+    OUTPUT FORMAT:
+    You must output a VALID MARKDOWN file with a YAML Frontmatter block at the very top.
     
-    REQUIRED SECTIONS (Use Creative Headers, not these exact words):
-    - **The Hook:** Why this matters right now.
-    - **The Gear Loadout:** Detailed equipment list (Use H3 for each item).
-    - **Field Protocols:** Step-by-step execution (Use H3/H4 for steps).
-    - **Safety & Risk Management:** Critical warnings.
-    - **Pro Tips / Ranger Secrets:** Advanced advice.
+    Structure:
+    ---
+    title: "Viral Title (Use Numbers or 'How To')"
+    description: "SEO description (max 150 chars)"
+    category: "Hiking Guides"
+    tags: ["tag1", "tag2"]
+    main_keyword: "{keyword}"
+    ---
     
-    OUTPUT JSON:
-    {{
-        "title": "A Viral/Clickworthy Title (Include '{datetime.now().year}')",
-        "description": "SEO description (160 chars)",
-        "category": "One of: {', '.join(VALID_CATEGORIES)}",
-        "main_keyword": "{keyword}",
-        "tags": ["tag1", "tag2", "tag3", "tag4"],
-        "content_body": "Full markdown content (No Title H1)..."
-    }}
+    [CONTENT START]
+    
+    RULES:
+    1. NO "Introduction" or "Conclusion" headers. Start with a Hook.
+    2. Use H2 (##) and H3 (###) extensively.
+    3. Include a "Gear Checklist" section.
+    4. Mention "{current_time}" naturally in the text.
+    5. Tone: Experienced, Safety-conscious, Helpful.
     """
     
-    user_prompt = f"""
-    TOPIC: {keyword}
-    
-    TASK: Write the most complete guide on the internet about this. 
-    Go deep. Explain the 'WHY' and 'HOW'. 
-    Make it actionable for {current_time}.
-    """
+    user_prompt = f"Topic: {keyword}\n\nWrite the article now."
     
     for api_key in GROQ_API_KEYS:
         client = Groq(api_key=api_key)
         try:
-            print(f"      🤖 AI Writing Deep-Dive on '{keyword}'...")
+            print(f"      🤖 AI Writing Deep-Dive (Markdown Mode)...")
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.6, # Agak rendah agar output panjang & stabil
-                max_tokens=7500, # Max Output Groq
-                response_format={"type": "json_object"}
+                temperature=0.6,
+                max_tokens=7500,
             )
             return completion.choices[0].message.content
         except RateLimitError:
-            print("      ⚠️ Rate Limit Hit, sleeping...")
             time.sleep(5)
         except Exception as e:
-            print(f"      ⚠️ Groq Error: {e}")
+            print(f"      ⚠️ Error: {e}")
     return None
+
+def parse_ai_response(raw_text):
+    try:
+        match = re.search(r'---\n(.*?)\n---', raw_text, re.DOTALL)
+        if match:
+            yaml_text = match.group(1)
+            data = {}
+            for line in yaml_text.split('\n'):
+                if ':' in line:
+                    key, val = line.split(':', 1)
+                    key = key.strip()
+                    val = val.strip().strip('"').strip("'")
+                    if key == 'tags':
+                        clean_tags = val.replace('[', '').replace(']', '').replace('"', '').replace("'", "")
+                        data['tags'] = [t.strip() for t in clean_tags.split(',')]
+                    else:
+                        data[key] = val
+            content_body = raw_text.split('---', 2)[-1].strip()
+            return data, content_body
+        else:
+            return None, None
+    except Exception: return None, None
 
 # ==========================================
 # 🏁 MAIN WORKFLOW
@@ -345,9 +334,8 @@ def main():
     os.makedirs(IMAGE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    print("🌲 FASTPLACE 'EVERGREEN' ENGINE STARTED")
+    print("🌲 FASTPLACE PRO ENGINE STARTED")
 
-    # 1. Fetch Topic
     trending_topics = fetch_trending_topics(SEED_KEYWORDS, max_results=TARGET_ARTICLES)
     
     processed_count = 0
@@ -355,57 +343,60 @@ def main():
     for topic in trending_topics:
         if processed_count >= TARGET_ARTICLES: break
         
-        # Format Topik
         clean_topic = topic.strip().title()
-        slug = slugify(clean_topic, max_length=60)
         
-        # Cek Duplikasi
+        # Cek Duplikasi Sederhana (Nama File)
+        # Kita pakai slug sementara untuk cek file, tapi file asli nanti pakai Optimized Slug
+        temp_slug_check = slugify(clean_topic)
         exists = False
         for f in os.listdir(CONTENT_DIR):
-            if slug in f: exists = True
+            if temp_slug_check in f: exists = True
         
         if exists:
-            print(f"   ⏩ Skipped (Exist): {clean_topic}")
+            print(f"   ⏩ Skipped: {clean_topic}")
             continue
             
         print(f"\n   ⚡ Processing: {clean_topic}")
         
         author = random.choice(AUTHOR_PROFILES)
-        raw_json = get_groq_article_json(clean_topic, author)
         
-        if not raw_json: continue
-        try:
-            data = json.loads(raw_json)
-        except:
-            print("      ❌ JSON Error")
-            continue
-
-        # Finalize
-        final_slug = slugify(data['title'], max_length=60)
+        # 1. Generate Raw Markdown
+        raw_output = get_groq_article_markdown(clean_topic, author)
+        if not raw_output: continue
+        
+        # 2. Parse YAML & Body
+        meta_data, body_content = parse_ai_response(raw_output)
+        if not meta_data or not body_content: continue
+            
+        # 3. Finalize Data
+        title = meta_data.get('title', clean_topic)
+        main_kw = meta_data.get('main_keyword', clean_topic)
+        
+        # 🔥 SLUG OPTIMIZATION: Short & SEO Friendly
+        # Menggunakan Main Keyword sebagai basis slug, bukan Judul Panjang
+        final_slug = optimize_seo_slug(title, main_keyword=main_kw)
+        
         filename = f"{final_slug}.md"
         img_filename = f"{final_slug}.webp"
         
-        # Generate Assets
-        img_path = generate_outdoor_image(data['main_keyword'], img_filename)
-        clean_body = clean_ai_content(data['content_body'])
+        # 4. Generate Assets
+        img_path = generate_outdoor_image(main_kw, img_filename)
+        clean_body = clean_markdown_body(body_content)
+        final_body = generate_toc(clean_body) + inject_smart_links(clean_body, title)
         
-        # Inject TOC & Smart Links
-        final_body = generate_toc(clean_body)
-        final_body = inject_smart_links(final_body, data['title'])
-        
-        # Fallback Category
-        cat = data.get('category', "Adventure Guides")
+        # Fallback Data
+        cat = meta_data.get('category', "Adventure Guides")
         if cat not in VALID_CATEGORIES: cat = random.choice(VALID_CATEGORIES)
-
-        # Create Markdown
+        
+        # 5. Write File
         md = f"""---
-title: "{data['title'].replace('"', "'")}"
+title: "{title.replace('"', "'")}"
 date: {datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")}
 author: "{author}"
 categories: ["{cat}"]
-tags: {json.dumps(data.get('tags', []))}
+tags: {json.dumps(meta_data.get('tags', []))}
 featured_image: "{img_path}"
-description: "{data['description'].replace('"', "'")}"
+description: "{meta_data.get('description', '').replace('"', "'")}"
 slug: "{final_slug}"
 url: "/articles/{final_slug}/"
 draft: false
@@ -415,18 +406,17 @@ weight: {random.randint(1, 10)}
 {final_body}
 
 ---
-*Disclaimer: Content generated for educational purposes. Always prioritize safety in the outdoors.*
+*Disclaimer: Content generated for educational purposes based on current trending topics.*
 """
         with open(f"{CONTENT_DIR}/{filename}", "w", encoding="utf-8") as f:
             f.write(md)
             
-        save_link_to_memory(data['title'], final_slug)
+        save_link_to_memory(title, final_slug)
         submit_to_indexnow(f"{WEBSITE_URL}/articles/{final_slug}/")
         
         print(f"      ✅ Published: {final_slug}")
         processed_count += 1
         
-        # Jeda lebih lama karena artikel panjang butuh resource
         print("      💤 Cooling down 60s...")
         time.sleep(60)
 
