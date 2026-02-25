@@ -79,35 +79,16 @@ def save_link_to_memory(title, slug):
     with open(MEMORY_FILE, 'w') as f: json.dump(memory, f, indent=2)
 
 def optimize_seo_slug(text, main_keyword=None):
-    """
-    🔥 SMART SEO SLUG:
-    1. Prioritaskan Main Keyword jika ada (karena itu inti SEO).
-    2. Hapus Stop Words (kata sambung).
-    3. Batasi maks 5 kata.
-    """
-    # List kata sambung bahasa Inggris yang tidak perlu ada di URL
     stop_words = [
         'a', 'an', 'the', 'and', 'but', 'or', 'for', 'nor', 'on', 'at', 'to', 'from', 'by', 
         'with', 'in', 'of', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'that', 
         'this', 'guide', 'review', 'best', 'top', 'ultimate', 'complete', 'how', 'tips'
     ]
-    
-    # Jika ada main_keyword, gunakan itu sebagai basis slug (Lebih SEO Friendly)
     source_text = main_keyword if main_keyword and len(main_keyword.split()) > 1 else text
-    
-    # Bersihkan text
     words = slugify(source_text).split('-')
-    
-    # Filter stop words
     clean_words = [w for w in words if w not in stop_words]
-    
-    # Jika setelah filter kosong (misal judulnya cuma "The Best Guide"), kembalikan ke original
-    if not clean_words:
-        clean_words = words
-        
-    # Batasi maksimal 5 kata agar URL pendek & tajam
+    if not clean_words: clean_words = words
     final_slug = "-".join(clean_words[:5])
-    
     return final_slug
 
 def fetch_trending_topics(keywords, max_results=3):
@@ -127,7 +108,6 @@ def fetch_trending_topics(keywords, max_results=3):
             df_rising = related[current_kw]['rising']
             for index, row in df_rising.iterrows():
                 query = row['query']
-                # Ambil keyword yang spesifik (Long Tail) tapi populer
                 if len(query.split()) > 2:
                     topics.append(query.title())
                     if len(topics) >= max_results: break
@@ -148,63 +128,75 @@ def clean_markdown_body(text):
     text = re.sub(r'^```[a-zA-Z]*\n', '', text)
     text = re.sub(r'\n```$', '', text)
     text = text.replace("```", "")
-    
-    # Hapus Header Basi
     patterns = [r'^#+\s*Introduction', r'^#+\s*Conclusion', r'^#+\s*Summary']
     for p in patterns:
         text = re.sub(p, '', text, flags=re.MULTILINE | re.IGNORECASE)
-
-    # Fix Spacing Headers
     text = re.sub(r'([^\n])\n(#{2,4}\s)', r'\1\n\n\2', text)
     return text.strip()
 
 # ==========================================
-# 📑 NAVIGASI & LINKS
+# 📑 NAVIGASI & LINKS (INTERNAL + EXTERNAL)
 # ==========================================
 def generate_toc(content_body):
     headers = re.findall(r'^(#{2,3})\s+(.+)$', content_body, flags=re.MULTILINE)
     if not headers: return "" 
-
     toc_lines = ["**Table of Contents**\n"]
     for level, title in headers:
         anchor = slugify(title)
         indent = "  " if level == "###" else ""
         toc_lines.append(f"{indent}- [{title}](#{anchor})")
-    
     return "\n".join(toc_lines) + "\n\n---\n\n"
 
 def inject_smart_links(content_body, current_title):
+    # 1. Coba Internal Linking
     memory = load_link_memory()
-    if not memory: return content_body
+    internal_links = []
     
-    current_keywords = set(current_title.lower().split())
-    relevant_links = []
-    
-    for title, url in memory.items():
-        title_words = set(title.lower().split())
-        common = current_keywords.intersection(title_words)
-        common = [w for w in common if len(w) > 4] 
-        if len(common) > 0:
-            relevant_links.append((title, url))
-    
-    if not relevant_links:
-        relevant_items = list(memory.items())
-        final_links = random.sample(relevant_items, min(3, len(relevant_items)))
-    else:
-        final_links = relevant_links[:3]
+    if memory:
+        current_keywords = set(current_title.lower().split())
+        for title, url in memory.items():
+            title_words = set(title.lower().split())
+            common = current_keywords.intersection(title_words)
+            common = [w for w in common if len(w) > 4] 
+            if len(common) > 0:
+                internal_links.append((title, url))
+        
+        # Fallback random internal
+        if not internal_links:
+            items = list(memory.items())
+            internal_links = random.sample(items, min(3, len(items)))
+        else:
+            internal_links = internal_links[:3]
 
-    if not final_links: return content_body
+    # 2. Coba External Linking (Jika Internal kurang dari 2)
+    # Ini penting agar tidak dianggap "Orphan Page" dan menambah Trust
+    external_links = [
+        ("Leave No Trace Principles", "https://lnt.org/"),
+        ("American Hiking Society", "https://americanhiking.org/"),
+        ("National Park Service", "https://www.nps.gov/"),
+        ("Wilderness Medical Society", "https://wms.org/"),
+        ("REI Expert Advice", "https://www.rei.com/learn/expert-advice")
+    ]
+    
+    final_box = ""
+    
+    if internal_links:
+        final_box += "\n\n> **🏕️ Read More on FastPlace:**\n"
+        for title, url in internal_links:
+            final_box += f"> - [{title}]({url})\n"
+    
+    # Tambahkan External Link jika internal masih sedikit (awal membangun blog)
+    if len(internal_links) < 2:
+        ext_link = random.choice(external_links)
+        final_box += f"\n> **🔗 External Resource:** [{ext_link[0]}]({ext_link[1]})\n"
 
-    link_box = "\n\n> **🏕️ Recommended for You:**\n"
-    for title, url in final_links:
-        link_box += f"> - [{title}]({url})\n"
-    link_box += "\n"
+    final_box += "\n"
 
     paragraphs = content_body.split('\n\n')
     if len(paragraphs) > 6:
-        paragraphs.insert(5, link_box)
+        paragraphs.insert(5, final_box)
         return "\n\n".join(paragraphs)
-    return content_body + link_box
+    return content_body + final_box
 
 # ==========================================
 # 🚀 INDEXING
@@ -223,10 +215,13 @@ def submit_to_indexnow(url):
     except Exception: pass
 
 # ==========================================
-# 🎨 IMAGE GENERATOR
+# 🎨 IMAGE GENERATOR (ROBUST VERSION)
 # ==========================================
 def generate_outdoor_image(prompt, filename):
     output_path = f"{IMAGE_DIR}/{filename}"
+    # Default Image (Pastikan file ini ada di folder static/images!)
+    default_img = "/images/default-adventure.webp"
+    
     forced_style = "National Geographic photography, cinematic 4k, epic mountain landscape, outdoor gear detail, golden hour lighting, hyper-realistic, sharp focus, 8k resolution"
     clean_prompt = prompt.replace("Guide", "").replace("Review", "").strip()
     final_prompt = f"{clean_prompt}, {forced_style}"
@@ -234,26 +229,45 @@ def generate_outdoor_image(prompt, filename):
     print(f"      🎨 Generating Image: {clean_prompt[:30]}...")
     headers = {"User-Agent": "Mozilla/5.0"}
 
+    # 1. POLLINATIONS (Metode Utama)
     try:
         seed = random.randint(1, 99999)
         poly_url = f"https://image.pollinations.ai/prompt/{requests.utils.quote(final_prompt)}?width=1280&height=720&model=flux&seed={seed}&nologo=true"
-        resp = requests.get(poly_url, headers=headers, timeout=30)
-        if resp.status_code == 200:
+        resp = requests.get(poly_url, headers=headers, timeout=40) # Timeout diperpanjang
+        
+        # Validasi: Status 200 DAN Ukuran file > 2KB (untuk hindari file corrupt 0 byte)
+        if resp.status_code == 200 and len(resp.content) > 2048:
             img = Image.open(BytesIO(resp.content)).convert("RGB")
             img.save(output_path, "WEBP", quality=90)
+            print("      ✅ Image Saved (Pollinations)")
             return f"/images/{filename}"
-    except: pass
+        else:
+            print("      ⚠️ Image generated but file too small/corrupt.")
+    except Exception as e:
+        print(f"      ⚠️ Pollinations Error: {e}")
     
-    return "/images/default-adventure.webp"
+    # 2. FLICKR (Fallback)
+    try:
+        print("      🔄 Trying Fallback (Flickr)...")
+        # Keyword generik biar pasti dapet
+        flickr_url = f"https://loremflickr.com/1280/720/mountain,forest/all"
+        resp = requests.get(flickr_url, headers=headers, timeout=30, allow_redirects=True)
+        if resp.status_code == 200 and len(resp.content) > 2048:
+            img = Image.open(BytesIO(resp.content)).convert("RGB")
+            img.save(output_path, "WEBP", quality=90)
+            print("      ✅ Image Saved (Flickr Fallback)")
+            return f"/images/{filename}"
+    except Exception: pass
+
+    print("      ❌ Image Gen Failed. Using Default.")
+    return default_img
 
 # ==========================================
-# 🧠 AI ENGINE (RAW MARKDOWN MODE)
+# 🧠 AI ENGINE
 # ==========================================
 def get_groq_article_markdown(keyword, author_name):
     current_time = datetime.now().strftime("%B %Y")
     
-    # 🔥 PROMPT YANG DIPERBAIKI
-    # Fokus: Output Markdown yang bersih & Keyword Density yang wajar
     system_prompt = f"""
     You are {author_name}, a world-class Outdoor Expert.
     Current Date: {current_time}.
@@ -344,10 +358,8 @@ def main():
         if processed_count >= TARGET_ARTICLES: break
         
         clean_topic = topic.strip().title()
-        
-        # Cek Duplikasi Sederhana (Nama File)
-        # Kita pakai slug sementara untuk cek file, tapi file asli nanti pakai Optimized Slug
         temp_slug_check = slugify(clean_topic)
+        
         exists = False
         for f in os.listdir(CONTENT_DIR):
             if temp_slug_check in f: exists = True
@@ -360,35 +372,27 @@ def main():
         
         author = random.choice(AUTHOR_PROFILES)
         
-        # 1. Generate Raw Markdown
         raw_output = get_groq_article_markdown(clean_topic, author)
         if not raw_output: continue
         
-        # 2. Parse YAML & Body
         meta_data, body_content = parse_ai_response(raw_output)
         if not meta_data or not body_content: continue
             
-        # 3. Finalize Data
         title = meta_data.get('title', clean_topic)
         main_kw = meta_data.get('main_keyword', clean_topic)
         
-        # 🔥 SLUG OPTIMIZATION: Short & SEO Friendly
-        # Menggunakan Main Keyword sebagai basis slug, bukan Judul Panjang
         final_slug = optimize_seo_slug(title, main_keyword=main_kw)
         
         filename = f"{final_slug}.md"
         img_filename = f"{final_slug}.webp"
         
-        # 4. Generate Assets
         img_path = generate_outdoor_image(main_kw, img_filename)
         clean_body = clean_markdown_body(body_content)
         final_body = generate_toc(clean_body) + inject_smart_links(clean_body, title)
         
-        # Fallback Data
         cat = meta_data.get('category', "Adventure Guides")
         if cat not in VALID_CATEGORIES: cat = random.choice(VALID_CATEGORIES)
         
-        # 5. Write File
         md = f"""---
 title: "{title.replace('"', "'")}"
 date: {datetime.now().strftime("%Y-%m-%dT%H:%M:%S+00:00")}
